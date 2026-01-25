@@ -3,129 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultimate Power Hour</title>
+    <title>Elite Power Hour</title>
     <script src="https://www.youtube.com/iframe_api"></script>
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --accent: #f59e0b;
-            --text: #f8fafc;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-        }
-
-        .container {
-            background: var(--card-bg);
-            padding: 2rem;
-            border-radius: 1rem;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            text-align: center;
-            max-width: 800px;
-            width: 100%;
-        }
-
-        h1 { color: var(--accent); margin-bottom: 0.5rem; }
-
-        .config-panel {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 2rem;
-            padding: 1rem;
-            border-bottom: 1px solid #334155;
-        }
-
-        input {
-            background: #0f172a;
-            border: 1px solid #475569;
-            color: white;
-            padding: 8px;
-            border-radius: 4px;
-        }
-
-        button {
-            background: var(--accent);
-            color: #000;
-            border: none;
-            padding: 10px 20px;
-            font-weight: bold;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: transform 0.1s;
-        }
-
-        button:active { transform: scale(0.95); }
-
-        #timer-display {
-            font-size: 5rem;
-            font-weight: bold;
-            font-family: monospace;
-            margin: 1rem 0;
-            color: var(--accent);
-        }
-
-        #round-info {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-        }
-
-        #player {
-            margin-top: 1rem;
-            border-radius: 8px;
-            max-width: 100%;
-        }
-
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #f59e0b; --text: #f8fafc; --danger: #ef4444; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .container { background: var(--card); padding: 2rem; border-radius: 1rem; text-align: center; width: 90%; max-width: 600px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .config-group { margin-bottom: 1rem; text-align: left; }
+        label { display: block; font-size: 0.8rem; margin-bottom: 4px; color: #94a3b8; }
+        input { width: 100%; background: #0f172a; border: 1px solid #475569; color: white; padding: 8px; border-radius: 4px; box-sizing: border-box; }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 1rem; }
+        button { background: var(--accent); color: #000; border: none; padding: 12px; font-weight: bold; border-radius: 4px; cursor: pointer; }
+        button.secondary { background: #475569; color: white; }
+        button.danger { background: var(--danger); color: white; }
+        #timer-display { font-size: 6rem; font-weight: bold; font-family: monospace; color: var(--accent); margin: 10px 0; }
         .hidden { display: none; }
+        #player { margin-top: 1rem; border-radius: 8px; width: 100%; height: 200px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🍻 Power Hour</h1>
-    
-    <div class="config-panel" id="setup">
-        <div>
-            <label>Minutes:</label>
-            <input type="number" id="roundsInput" value="60" min="1">
+    <div id="setup">
+        <h1>🍻 Power Hour Setup</h1>
+        <div class="config-group">
+            <label>Minutes to Play:</label>
+            <input type="number" id="roundsInput" value="60">
         </div>
-        <div>
-            <label>Playlist ID:</label>
-            <input type="text" id="playlistInput" placeholder="Enter Playlist ID" value="PLMC9KNkIncKtPojQ-nuy8rIELdbfSktas">
+        <div class="config-group">
+            <label>YouTube Playlist ID:</label>
+            <input type="text" id="playlistInput" value="PLMC9KNkIncKtPojQ-nuy8rIELdbfSktas">
         </div>
-        <button onclick="initGame()">START GAME</button>
-    </div>
-<div id="game-ui" class="hidden">
-    <div id="round-info">Round 1 / 60</div>
-    <div id="timer-display">01:00</div>
-    
-    <div style="margin-bottom: 1rem;">
-        <button onclick="skipSong()" style="background: #475569;">Next Song ⏭️</button>
-        <button onclick="forceNextRound()" style="background: #ef4444;">Drink Now! 🍻</button>
+        <div class="config-group">
+            <label>Custom Drink Sound (Upload MP3):</label>
+            <input type="file" id="soundUpload" accept="audio/*">
+        </div>
+        <button onclick="initGame()" style="width: 100%; margin-top: 10px;">START GAME</button>
     </div>
 
-    <div id="player"></div>
+    <div id="game-ui" class="hidden">
+        <div id="round-info" style="font-size: 1.2rem;">Round 1 / 60</div>
+        <div id="timer-display">01:00</div>
+        
+        <div class="btn-grid">
+            <button id="pauseBtn" onclick="togglePause()">PAUSE</button>
+            <button class="secondary" onclick="skipSong()">SKIP SONG</button>
+        </div>
+        <button class="danger" onclick="forceNextRound()" style="width: 100%; margin-top: 10px;">DRINK NOW (RESET CLOCK)</button>
+
+        <div id="player"></div>
+    </div>
 </div>
 
 <script>
-    let player;
-    let timer;
-    let secondsLeft = 60;
-    let currentRound = 1;
-    let totalRounds = 60;
-    const sfx = new Audio('https://assets.mixkit.co/active_storage/sfx/2005/2005-preview.mp3');
+    let player, timer, secondsLeft = 60, currentRound = 1, totalRounds = 60;
+    let isPaused = false;
+    let drinkSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2005/2005-preview.mp3');
+
+    // Handle Custom Sound Upload
+    document.getElementById('soundUpload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => { drinkSound = new Audio(event.target.result); };
+            reader.readAsDataURL(file);
+        }
+    });
 
     function initGame() {
         totalRounds = document.getElementById('roundsInput').value;
@@ -134,24 +77,20 @@
         document.getElementById('game-ui').classList.remove('hidden');
 
         player = new YT.Player('player', {
-            height: '360',
-            width: '100%',
+            height: '200', width: '100%',
             playerVars: { 'listType': 'playlist', 'list': playlistId, 'autoplay': 1 },
-            events: { 'onReady': startSequence }
+            events: { 'onReady': () => { player.playVideo(); startTimer(); } }
         });
     }
 
-    function startSequence() {
-        player.playVideo();
-        startTimer();
-    }
-
     function startTimer() {
-        if (timer) clearInterval(timer); // Prevent double timers
+        if (timer) clearInterval(timer);
         timer = setInterval(() => {
-            secondsLeft--;
-            updateDisplay();
-            if (secondsLeft <= 0) handleNewRound();
+            if (!isPaused) {
+                secondsLeft--;
+                updateDisplay();
+                if (secondsLeft <= 0) handleNewRound();
+            }
         }, 1000);
     }
 
@@ -163,12 +102,26 @@
         document.getElementById('round-info').innerText = `Round ${currentRound} / ${totalRounds}`;
     }
 
-    // BUTTON FUNCTION: Just changes the song
-    function skipSong() {
-        if (player) player.nextVideo();
+    function togglePause() {
+        isPaused = !isPaused;
+        const btn = document.getElementById('pauseBtn');
+        if (isPaused) {
+            player.pauseVideo();
+            btn.innerText = "RESUME";
+            btn.style.background = "#22c55e";
+        } else {
+            player.playVideo();
+            btn.innerText = "PAUSE";
+            btn.style.background = "var(--accent)";
+        }
     }
 
-    // BUTTON FUNCTION: Triggers the "Drink" sequence immediately and resets the 60s clock
+    function skipSong() {
+        player.nextVideo();
+        secondsLeft = 60; // Reset timer on skip as requested
+        updateDisplay();
+    }
+
     function forceNextRound() {
         handleNewRound();
     }
@@ -176,22 +129,18 @@
     function handleNewRound() {
         if (currentRound >= totalRounds) {
             clearInterval(timer);
-            document.getElementById('timer-display').innerText = "FINISH!";
+            document.getElementById('timer-display').innerText = "DONE!";
             player.stopVideo();
             return;
         }
-
         player.setVolume(15);
-        sfx.play();
+        drinkSound.play();
         player.nextVideo();
-        
         currentRound++;
-        secondsLeft = 60; // Reset the clock
+        secondsLeft = 60;
         updateDisplay();
-
-        setTimeout(() => { player.setVolume(100); }, 3000);
+        setTimeout(() => { if(!isPaused) player.setVolume(100); }, 3000);
     }
 </script>
-
 </body>
 </html>
