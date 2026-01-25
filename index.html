@@ -48,9 +48,9 @@
         <h1>🍻 POWER HOUR</h1>
         <div style="text-align: left;">
             <label>Minutes to Play:</label>
-            <input type="number" id="roundsInput" value="60">
+            <input type="number" id="roundsInput" value="100">
             <label>YouTube Playlist ID:</label>
-            <input type="text" id="playlistInput" value="PLO-9GUc2ykdMGwtfjy9HZKKNR8GNMR37_">
+            <input type="text" id="playlistInput" value="PLO-9GUc2ykdMGwtfjy9HZKKNR8GNMR37_"> 
         </div>
         <button class="btn-main" onclick="initGame()" style="width: 100%; margin-top: 10px;">START THE PARTY</button>
     </div>
@@ -71,10 +71,10 @@
         </div>
 
         <div class="btn-stack">
-            <button id="pauseBtn" class="btn-sec" onclick="togglePause()" style="background: var(--success); color: black;">PAUSE GAME</button>
-            <button class="btn-sec" onclick="skipAndReset()">SKIP SONG & RESET ⏳</button>
-            <button class="btn-danger" onclick="triggerManualRound()">DRINK NOW (RESET) 🍻</button>
-            <button class="btn-manual" onclick="playManualSFX()">PLAY SOUND ONLY 🔊</button>
+            <button id="pauseBtn" class="btn-sec" onclick="togglePause()">PAUSE GAME</button>
+            <button class="btn-sec" onclick="resetTimerOnly()">RESET TIMER ⏳</button>
+            <button class="btn-danger" onclick="skipSong()">SKIP SONG ⏭</button>
+            <button class="btn-manual" onclick="playManualSFX()">PLAY DRINK SFX 🍻</button>
         </div>
     </div>
 
@@ -84,132 +84,146 @@
 </div>
 
 <script>
-    let player;
-    let timer;
-    let secondsLeft = 60;
-    let currentRound = 1;
-    let totalRounds = 60;
-    let isPaused = false;
-    let musicVol = 80;
-    const drinkSound = new Audio('drink.mp3'); 
+let player;
+let timer = null;
 
-    // REQUIRED FOR YOUTUBE API
-    function onYouTubeIframeAPIReady() {
-        console.log("API Ready");
+const ROUND_SECONDS = 60;
+
+let secondsLeft = ROUND_SECONDS;
+let currentRound = 1;
+let totalRounds = 100;
+let isPaused = false;
+let musicVol = 80;
+
+const drinkSound = new Audio('drink.mp3');
+drinkSound.preload = "auto";
+
+/* ---------- YouTube API ---------- */
+function onYouTubeIframeAPIReady() {
+    console.log("YouTube API ready");
+}
+
+/* ---------- Volume ---------- */
+function updateAllVolumes() {
+    musicVol = Number(document.getElementById('musVolInput').value);
+    document.getElementById('musLabel').innerText = musicVol + "%";
+
+    const sfxVal = Number(document.getElementById('sfxVolInput').value);
+    drinkSound.volume = sfxVal;
+    document.getElementById('sfxLabel').innerText = Math.round(sfxVal * 100) + "%";
+
+    if (player?.setVolume) {
+        player.setVolume(musicVol);
     }
+}
 
-    function updateAllVolumes() {
-        musicVol = document.getElementById('musVolInput').value;
-        document.getElementById('musLabel').innerText = musicVol + "%";
-        
-        const sfxVal = document.getElementById('sfxVolInput').value;
-        drinkSound.volume = sfxVal;
-        document.getElementById('sfxLabel').innerText = Math.round(sfxVal * 100) + "%";
-        
-        if (player && player.setVolume) player.setVolume(musicVol);
-    }
+/* ---------- Init ---------- */
+function initGame() {
+    totalRounds = Number(document.getElementById('roundsInput').value) || 100;
+    const playlistId = document.getElementById('playlistInput').value.trim();
 
-    function initGame() {
-        // Fix for Round Correspondence
-        totalRounds = parseInt(document.getElementById('roundsInput').value);
-        const playlistId = document.getElementById('playlistInput').value;
-        
-        document.getElementById('setup').classList.add('hidden');
-        document.getElementById('game-ui').classList.remove('hidden');
-        
-        // Initial Round UI Update
-        updateDisplay();
+    document.getElementById('setup').classList.add('hidden');
+    document.getElementById('game-ui').classList.remove('hidden');
 
-        player = new YT.Player('player', {
-            height: '100%',
-            width: '100%',
-            playerVars: { 'listType': 'playlist', 'list': playlistId, 'autoplay': 1, 'controls': 1 },
-            events: {
-                'onReady': (e) => {
-                    e.target.setVolume(musicVol);
-                    e.target.playVideo();
-                    startCountdown();
-                }
+    updateDisplay();
+
+    player = new YT.Player('player', {
+        width: '100%',
+        height: '100%',
+        playerVars: {
+            listType: 'playlist',
+            list: playlistId,
+            autoplay: 1,
+            controls: 1
+        },
+        events: {
+            onReady: e => {
+                e.target.setVolume(musicVol);
+                e.target.playVideo();
+                startCountdown();
             }
-        });
-    }
-
-    function startCountdown() {
-        if (timer) clearInterval(timer);
-        timer = setInterval(() => {
-            if (!isPaused) {
-                secondsLeft--;
-                if (secondsLeft < 0) {
-                    processRoundChange();
-                } else {
-                    updateDisplay();
-                }
-            }
-        }, 1000);
-    }
-
-    function updateDisplay() {
-        const mins = Math.floor(secondsLeft / 60);
-        const secs = secondsLeft % 60;
-        document.getElementById('timer-display').innerText = 
-            `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        document.getElementById('round-info').innerText = `ROUND ${currentRound} / ${totalRounds}`;
-    }
-
-    // BUTTON FUNCTIONS
-    function togglePause() {
-        if (!player) return;
-        isPaused = !isPaused;
-        const btn = document.getElementById('pauseBtn');
-        if (isPaused) {
-            player.pauseVideo();
-            btn.innerText = "RESUME GAME";
-            btn.style.background = "var(--success)";
-        } else {
-            player.playVideo();
-            btn.innerText = "PAUSE GAME";
-            btn.style.background = "#475569";
-            btn.style.color = "white";
         }
-    }
+    });
+}
 
-    function skipAndReset() {
-        if (player) player.nextVideo();
-        secondsLeft = 60;
-        updateDisplay();
-    }
+/* ---------- Timer ---------- */
+function startCountdown() {
+    clearInterval(timer);
+    timer = setInterval(() => {
+        if (isPaused) return;
 
-    function triggerManualRound() {
-        processRoundChange();
-    }
+        secondsLeft--;
 
-    function playManualSFX() {
-        drinkSound.currentTime = 0;
-        drinkSound.play();
-    }
-
-    function processRoundChange() {
-        if (currentRound >= totalRounds) {
-            clearInterval(timer);
-            document.getElementById('timer-display').innerText = "FINISH";
-            player.stopVideo();
-            return;
+        if (secondsLeft === 0) {
+            nextRound();
         }
 
-        // SFX and Music Ducking
-        if (player) player.setVolume(musicVol * 0.15);
-        drinkSound.play();
-        if (player) player.nextVideo();
-        
-        currentRound++;
-        secondsLeft = 60;
         updateDisplay();
+    }, 1000);
+}
 
-        // Restoration
-        setTimeout(() => {
-            if (!isPaused && player) player.setVolume(musicVol);
-        }, 4500);
+function updateDisplay() {
+    const secs = secondsLeft.toString().padStart(2, '0');
+    document.getElementById('timer-display').innerText = `01:${secs}`;
+    document.getElementById('round-info').innerText =
+        `ROUND ${currentRound} / ${totalRounds}`;
+}
+
+/* ---------- Rounds ---------- */
+function nextRound() {
+    if (currentRound >= totalRounds) {
+        clearInterval(timer);
+        player.stopVideo();
+        document.getElementById('timer-display').innerText = "DONE 🍻";
+        return;
     }
+
+    // Duck music
+    player.setVolume(musicVol * 0.2);
+
+    // Play drink sound
+    drinkSound.currentTime = 0;
+    drinkSound.play();
+
+    // Advance song
+    player.nextVideo();
+
+    currentRound++;
+    secondsLeft = ROUND_SECONDS;
+
+    setTimeout(() => {
+        if (!isPaused) player.setVolume(musicVol);
+    }, 4000);
+}
+
+/* ---------- Buttons ---------- */
+function togglePause() {
+    isPaused = !isPaused;
+    const btn = document.getElementById('pauseBtn');
+
+    if (isPaused) {
+        player.pauseVideo();
+        btn.innerText = "RESUME GAME";
+    } else {
+        player.playVideo();
+        btn.innerText = "PAUSE GAME";
+    }
+}
+
+function resetTimerOnly() {
+    secondsLeft = ROUND_SECONDS;
+    updateDisplay();
+}
+
+function skipSong() {
+    player.nextVideo();
+}
+
+function playManualSFX() {
+    drinkSound.currentTime = 0;
+    drinkSound.play();
+}
 </script>
+
 </body>
 </html>
