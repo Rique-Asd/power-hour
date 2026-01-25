@@ -15,7 +15,7 @@
         #game-ui { display: flex; height: 100vh; width: 100vw; }
         .sidebar { width: 380px; background: var(--panel); display: flex; flex-direction: column; padding: 25px; border-right: 1px solid #334155; box-shadow: 10px 0 30px rgba(0,0,0,0.5); z-index: 10; }
         .video-container { flex-grow: 1; background: #000; position: relative; }
-        #player { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #player { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; } /* Pointer events none prevents manual clicking on YT */
 
         #timer-display { font-size: 7rem; font-weight: 900; font-family: monospace; color: var(--accent); text-align: center; line-height: 1; margin: 10px 0; }
         #round-info { font-size: 1.4rem; text-align: center; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; }
@@ -31,6 +31,7 @@
         .btn-main { background: var(--accent); color: #000; }
         .btn-sec { background: #475569; color: white; }
         .btn-danger { background: var(--danger); color: white; }
+        .btn-manual { background: #6366f1; color: white; }
         
         .hidden { display: none !important; }
     </style>
@@ -54,13 +55,22 @@
     <div class="sidebar">
         <div id="round-info">ROUND 1 / 60</div>
         <div id="timer-display">01:00</div>
+
         <div class="vol-row">
             <label>Music Volume <span class="vol-val" id="musLabel">80%</span></label>
             <input type="range" id="musVolInput" min="0" max="100" value="80" oninput="updateAllVolumes()">
         </div>
+
+        <div class="vol-row">
+            <label>SFX Volume <span class="vol-val" id="sfxLabel">100%</span></label>
+            <input type="range" id="sfxVolInput" min="0" max="1" step="0.05" value="1" oninput="updateAllVolumes()">
+        </div>
+
         <div class="btn-stack">
             <button id="pauseBtn" class="btn-sec" onclick="togglePause()">PAUSE GAME</button>
+            <button class="btn-sec" onclick="resetTimerOnly()">RESET TIMER ⏳</button>
             <button class="btn-danger" onclick="skipSong()">SKIP SONG ⏭</button>
+            <button class="btn-manual" onclick="playManualSFX()">PLAY DRINK SFX 🍻</button>
         </div>
     </div>
     <div class="video-container">
@@ -76,50 +86,44 @@ let currentRound = 1;
 let totalRounds = 60;
 let isPaused = false;
 let musicVol = 80;
+let sfxVol = 1.0;
 
-// 1. Corrected the syntax error (extra brace removed)
-// 2. Added a check to see if YouTube API loaded
+// Update this path if your file name is different
+const drinkSound = new Audio('drink.mp3'); 
+drinkSound.preload = "auto";
+
 function initGame() {
     totalRounds = Number(document.getElementById('roundsInput').value) || 60;
     const playlistId = document.getElementById('playlistInput').value.trim();
 
-    // Force UI Switch immediately so the user isn't "stuck"
     document.getElementById('setup').classList.add('hidden');
     document.getElementById('game-ui').classList.remove('hidden');
 
     updateDisplay();
 
-    // Check if YT is defined
     if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
-        alert("YouTube API is still loading or blocked. Please refresh.");
+        alert("YouTube API is blocked or still loading.");
         return;
     }
 
-    try {
-        player = new YT.Player('player', {
-            width: '100%',
-            height: '100%',
-            playerVars: {
-                listType: 'playlist',
-                list: playlistId,
-                autoplay: 1,
-                controls: 1,
-                origin: window.location.origin // Helps with local file testing
-            },
-            events: {
-                'onReady': onPlayerReady,
-                'onError': (e) => console.log("Player Error:", e)
+    player = new YT.Player('player', {
+        width: '100%',
+        height: '100%',
+        playerVars: {
+            listType: 'playlist',
+            list: playlistId,
+            autoplay: 1,
+            controls: 0, // Keeps the UI clean
+            modestbranding: 1
+        },
+        events: {
+            'onReady': (event) => {
+                event.target.setVolume(musicVol);
+                event.target.playVideo();
+                startCountdown();
             }
-        });
-    } catch (e) {
-        console.error("Initialization failed", e);
-    }
-}
-
-function onPlayerReady(event) {
-    event.target.setVolume(musicVol);
-    event.target.playVideo();
-    startCountdown();
+        }
+    });
 }
 
 function startCountdown() {
@@ -152,32 +156,26 @@ function nextRound() {
         document.getElementById('timer-display').innerText = "DONE 🍻";
         return;
     }
+
+    playManualSFX(); // Trigger the sound and the volume ducking
+    
     currentRound++;
     secondsLeft = 60;
     if (player && player.nextVideo) player.nextVideo();
 }
 
-function togglePause() {
-    isPaused = !isPaused;
-    const btn = document.getElementById('pauseBtn');
-    if (isPaused) {
-        if (player && player.pauseVideo) player.pauseVideo();
-        btn.innerText = "RESUME GAME";
-    } else {
-        if (player && player.playVideo) player.playVideo();
-        btn.innerText = "PAUSE GAME";
-    }
+/* --- Added Features --- */
+
+function resetTimerOnly() {
+    secondsLeft = 60;
+    updateDisplay();
 }
 
-function updateAllVolumes() {
-    musicVol = Number(document.getElementById('musVolInput').value);
-    document.getElementById('musLabel').innerText = musicVol + "%";
-    if (player && player.setVolume) player.setVolume(musicVol);
-}
-
-function skipSong() {
-    if (player && player.nextVideo) player.nextVideo();
-}
-</script>
-</body>
-</html>
+function playManualSFX() {
+    // 1. Duck the music volume
+    if (player && player.setVolume) player.setVolume(musicVol * 0.2);
+    
+    // 2. Play the sound
+    drinkSound.volume = sfxVol;
+    drinkSound.currentTime = 0;
+    drinkSound.play().catch(e => console.log("Sound play failed. Check if 'drink.mp3
