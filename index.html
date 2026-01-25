@@ -36,7 +36,7 @@
         .btn-main { background: var(--accent); color: #000; }
         .btn-sec { background: #475569; color: white; }
         .btn-danger { background: var(--danger); color: white; }
-        .btn-manual { background: #6366f1; color: white; } /* Manual Sound Button */
+        .btn-manual { background: #6366f1; color: white; } 
         
         .hidden { display: none !important; }
     </style>
@@ -95,6 +95,7 @@ let totalRounds = 100;
 let isPaused = false;
 let musicVol = 80;
 
+// Note: You need a drink.mp3 file in your folder for this to work
 const drinkSound = new Audio('drink.mp3');
 drinkSound.preload = "auto";
 
@@ -112,7 +113,7 @@ function updateAllVolumes() {
     drinkSound.volume = sfxVal;
     document.getElementById('sfxLabel').innerText = Math.round(sfxVal * 100) + "%";
 
-    if (player?.setVolume) {
+    if (player && typeof player.setVolume === 'function') {
         player.setVolume(musicVol);
     }
 }
@@ -134,7 +135,8 @@ function initGame() {
             listType: 'playlist',
             list: playlistId,
             autoplay: 1,
-            controls: 1
+            controls: 1,
+            origin: window.location.origin
         },
         events: {
             onReady: e => {
@@ -149,7 +151,6 @@ function initGame() {
 /* ---------- Timer ---------- */
 function startCountdown() {
     clearInterval(timer);
-
     firstTick = true;
     secondsLeft = ROUND_SECONDS;
     updateDisplay();
@@ -157,7 +158,6 @@ function startCountdown() {
     timer = setInterval(() => {
         if (isPaused) return;
 
-        // Skip decrement on the very first tick
         if (firstTick) {
             firstTick = false;
             return;
@@ -174,18 +174,15 @@ function startCountdown() {
     }, 1000);
 }
 
-
 function updateDisplay() {
     const mins = Math.floor(secondsLeft / 60);
-    const secs = secondsLeft % 60;
+    const secs = Math.floor(secondsLeft % 60);
 
     document.getElementById('timer-display').innerText =
         `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
     document.getElementById('round-info').innerText =
         `ROUND ${currentRound} / ${totalRounds}`;
-}
-
 }
 
 /* ---------- Rounds ---------- */
@@ -202,7 +199,7 @@ function nextRound() {
 
     // Play drink sound
     drinkSound.currentTime = 0;
-    drinkSound.play();
+    drinkSound.play().catch(e => console.log("Sound play failed:", e));
 
     // Advance song
     player.nextVideo();
@@ -240,7 +237,7 @@ function skipSong() {
 
 function playManualSFX() {
     drinkSound.currentTime = 0;
-    drinkSound.play();
+    drinkSound.play().catch(e => console.log("Sound play failed:", e));
 }
 </script>
 
