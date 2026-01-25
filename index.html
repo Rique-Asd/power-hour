@@ -9,34 +9,28 @@
         :root { --bg: #020617; --panel: #1e293b; --accent: #f59e0b; --text: #f8fafc; --danger: #ef4444; --success: #22c55e; }
         body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
 
-        /* Setup Screen */
         #setup { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; text-align: center; }
         .setup-card { background: var(--panel); padding: 3rem; border-radius: 1.5rem; width: 400px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid #334155; }
 
-        /* Dashboard Layout */
         #game-ui { display: flex; height: 100vh; width: 100vw; }
         .sidebar { width: 380px; background: var(--panel); display: flex; flex-direction: column; padding: 25px; border-right: 1px solid #334155; box-shadow: 10px 0 30px rgba(0,0,0,0.5); z-index: 10; }
         .video-container { flex-grow: 1; background: #000; position: relative; }
         #player { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 
-        /* HUD Elements */
         #timer-display { font-size: 7rem; font-weight: 900; font-family: monospace; color: var(--accent); text-align: center; line-height: 1; margin: 10px 0; }
         #round-info { font-size: 1.4rem; text-align: center; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; }
 
-        /* Sliders & Inputs */
         .vol-row { margin-bottom: 1.5rem; text-align: left; }
         label { display: block; font-size: 0.75rem; color: #94a3b8; margin-bottom: 8px; font-weight: bold; text-transform: uppercase; }
         input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
         input[type="text"], input[type="number"] { width: 100%; background: #0f172a; border: 1px solid #475569; color: white; padding: 12px; border-radius: 6px; box-sizing: border-box; margin-bottom: 1rem; }
         .vol-val { float: right; color: var(--accent); }
 
-        /* Buttons */
         .btn-stack { display: flex; flex-direction: column; gap: 12px; margin-top: auto; }
         button { border: none; padding: 16px; font-weight: 800; border-radius: 8px; cursor: pointer; text-transform: uppercase; transition: 0.2s; }
         .btn-main { background: var(--accent); color: #000; }
         .btn-sec { background: #475569; color: white; }
         .btn-danger { background: var(--danger); color: white; }
-        .btn-manual { background: #6366f1; color: white; } 
         
         .hidden { display: none !important; }
     </style>
@@ -48,11 +42,11 @@
         <h1>🍻 POWER HOUR</h1>
         <div style="text-align: left;">
             <label>Minutes to Play:</label>
-            <input type="number" id="roundsInput" value="100">
+            <input type="number" id="roundsInput" value="60">
             <label>YouTube Playlist ID:</label>
             <input type="text" id="playlistInput" value="PLO-9GUc2ykdMGwtfjy9HZKKNR8GNMR37_"> 
         </div>
-        <button class="btn-main" onclick="initGame()" style="width: 100%; margin-top: 10px;">START THE PARTY</button>
+        <button class="btn-main" onclick="initGame()">START THE PARTY</button>
     </div>
 </div>
 
@@ -60,24 +54,15 @@
     <div class="sidebar">
         <div id="round-info">ROUND 1 / 60</div>
         <div id="timer-display">01:00</div>
-
         <div class="vol-row">
             <label>Music Volume <span class="vol-val" id="musLabel">80%</span></label>
             <input type="range" id="musVolInput" min="0" max="100" value="80" oninput="updateAllVolumes()">
         </div>
-        <div class="vol-row">
-            <label>SFX Volume <span class="vol-val" id="sfxLabel">100%</span></label>
-            <input type="range" id="sfxVolInput" min="0" max="1" step="0.05" value="1" oninput="updateAllVolumes()">
-        </div>
-
         <div class="btn-stack">
             <button id="pauseBtn" class="btn-sec" onclick="togglePause()">PAUSE GAME</button>
-            <button class="btn-sec" onclick="resetTimerOnly()">RESET TIMER ⏳</button>
             <button class="btn-danger" onclick="skipSong()">SKIP SONG ⏭</button>
-            <button class="btn-manual" onclick="playManualSFX()">PLAY DRINK SFX 🍻</button>
         </div>
     </div>
-
     <div class="video-container">
         <div id="player"></div>
     </div>
@@ -86,106 +71,80 @@
 <script>
 let player;
 let timer = null;
-
-const ROUND_SECONDS = 60;
-let secondsLeft = ROUND_SECONDS;
-let firstTick = true;
+let secondsLeft = 60;
 let currentRound = 1;
-let totalRounds = 100;
+let totalRounds = 60;
 let isPaused = false;
 let musicVol = 80;
 
-// Note: You need a drink.mp3 file in your folder for this to work
-const drinkSound = new Audio('drink.mp3');
-drinkSound.preload = "auto";
-
-/* ---------- YouTube API ---------- */
-function onYouTubeIframeAPIReady() {
-    console.log("YouTube API ready");
-}
-
-/* ---------- Volume ---------- */
-function updateAllVolumes() {
-    musicVol = Number(document.getElementById('musVolInput').value);
-    document.getElementById('musLabel').innerText = musicVol + "%";
-
-    const sfxVal = Number(document.getElementById('sfxVolInput').value);
-    drinkSound.volume = sfxVal;
-    document.getElementById('sfxLabel').innerText = Math.round(sfxVal * 100) + "%";
-
-    if (player && typeof player.setVolume === 'function') {
-        player.setVolume(musicVol);
-    }
-}
-
-/* ---------- Init ---------- */
+// 1. Corrected the syntax error (extra brace removed)
+// 2. Added a check to see if YouTube API loaded
 function initGame() {
-    totalRounds = Number(document.getElementById('roundsInput').value) || 100;
+    totalRounds = Number(document.getElementById('roundsInput').value) || 60;
     const playlistId = document.getElementById('playlistInput').value.trim();
 
+    // Force UI Switch immediately so the user isn't "stuck"
     document.getElementById('setup').classList.add('hidden');
     document.getElementById('game-ui').classList.remove('hidden');
 
     updateDisplay();
 
-    player = new YT.Player('player', {
-        width: '100%',
-        height: '100%',
-        playerVars: {
-            listType: 'playlist',
-            list: playlistId,
-            autoplay: 1,
-            controls: 1,
-            origin: window.location.origin
-        },
-        events: {
-            onReady: e => {
-                e.target.setVolume(musicVol);
-                e.target.playVideo();
-                startCountdown();
+    // Check if YT is defined
+    if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
+        alert("YouTube API is still loading or blocked. Please refresh.");
+        return;
+    }
+
+    try {
+        player = new YT.Player('player', {
+            width: '100%',
+            height: '100%',
+            playerVars: {
+                listType: 'playlist',
+                list: playlistId,
+                autoplay: 1,
+                controls: 1,
+                origin: window.location.origin // Helps with local file testing
+            },
+            events: {
+                'onReady': onPlayerReady,
+                'onError': (e) => console.log("Player Error:", e)
             }
-        }
-    });
+        });
+    } catch (e) {
+        console.error("Initialization failed", e);
+    }
 }
 
-/* ---------- Timer ---------- */
+function onPlayerReady(event) {
+    event.target.setVolume(musicVol);
+    event.target.playVideo();
+    startCountdown();
+}
+
 function startCountdown() {
-    clearInterval(timer);
-    firstTick = true;
-    secondsLeft = ROUND_SECONDS;
-    updateDisplay();
-
+    if (timer) clearInterval(timer);
+    secondsLeft = 60;
+    
     timer = setInterval(() => {
-        if (isPaused) return;
-
-        if (firstTick) {
-            firstTick = false;
-            return;
+        if (!isPaused) {
+            secondsLeft--;
+            if (secondsLeft < 0) {
+                nextRound();
+            }
+            updateDisplay();
         }
-
-        secondsLeft--;
-
-        if (secondsLeft < 0) {
-            nextRound();
-            return;
-        }
-
-        updateDisplay();
     }, 1000);
 }
 
 function updateDisplay() {
     const mins = Math.floor(secondsLeft / 60);
-    const secs = Math.floor(secondsLeft % 60);
-
-    document.getElementById('timer-display').innerText =
+    const secs = secondsLeft % 60;
+    document.getElementById('timer-display').innerText = 
         `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-
-    document.getElementById('round-info').innerText =
-        `ROUND ${currentRound} / ${totalRounds}`;
+    document.getElementById('round-info').innerText = `ROUND ${currentRound} / ${totalRounds}`;
 }
 
-/* ---------- Rounds ---------- */
 function nextRound() {
     if (currentRound >= totalRounds) {
         clearInterval(timer);
@@ -193,53 +152,32 @@ function nextRound() {
         document.getElementById('timer-display').innerText = "DONE 🍻";
         return;
     }
-
-    // Duck music
-    player.setVolume(musicVol * 0.2);
-
-    // Play drink sound
-    drinkSound.currentTime = 0;
-    drinkSound.play().catch(e => console.log("Sound play failed:", e));
-
-    // Advance song
-    player.nextVideo();
-
     currentRound++;
-    secondsLeft = ROUND_SECONDS;
-
-    setTimeout(() => {
-        if (!isPaused) player.setVolume(musicVol);
-    }, 4000);
+    secondsLeft = 60;
+    if (player && player.nextVideo) player.nextVideo();
 }
 
-/* ---------- Buttons ---------- */
 function togglePause() {
     isPaused = !isPaused;
     const btn = document.getElementById('pauseBtn');
-
     if (isPaused) {
-        player.pauseVideo();
+        if (player && player.pauseVideo) player.pauseVideo();
         btn.innerText = "RESUME GAME";
     } else {
-        player.playVideo();
+        if (player && player.playVideo) player.playVideo();
         btn.innerText = "PAUSE GAME";
     }
 }
 
-function resetTimerOnly() {
-    secondsLeft = ROUND_SECONDS;
-    updateDisplay();
+function updateAllVolumes() {
+    musicVol = Number(document.getElementById('musVolInput').value);
+    document.getElementById('musLabel').innerText = musicVol + "%";
+    if (player && player.setVolume) player.setVolume(musicVol);
 }
 
 function skipSong() {
-    player.nextVideo();
-}
-
-function playManualSFX() {
-    drinkSound.currentTime = 0;
-    drinkSound.play().catch(e => console.log("Sound play failed:", e));
+    if (player && player.nextVideo) player.nextVideo();
 }
 </script>
-
 </body>
 </html>
