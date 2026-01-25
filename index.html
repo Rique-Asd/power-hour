@@ -88,6 +88,7 @@ let player;
 let timer = null;
 
 const ROUND_SECONDS = 60;
+let secondsLeft = ROUND_SECONDS;
 
 let secondsLeft = ROUND_SECONDS;
 let currentRound = 1;
@@ -163,10 +164,16 @@ function startCountdown() {
 }
 
 function updateDisplay() {
-    const secs = secondsLeft.toString().padStart(2, '0');
-    document.getElementById('timer-display').innerText = `01:${secs}`;
+    const mins = Math.floor(secondsLeft / 60);
+    const secs = secondsLeft % 60;
+
+    document.getElementById('timer-display').innerText =
+        `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
     document.getElementById('round-info').innerText =
         `ROUND ${currentRound} / ${totalRounds}`;
+}
+
 }
 
 /* ---------- Rounds ---------- */
