@@ -161,10 +161,12 @@ function updateDisplay() {
 }
 
 function nextRound() {
+    // Play final sound effect if the game is ending
     if (currentRound >= totalRounds) {
         endGame();
         return;
     }
+    
     playManualSFX();
     currentRound++;
     secondsLeft = 60;
@@ -173,11 +175,18 @@ function nextRound() {
 
 function endGame() {
     clearInterval(timer);
-    if (player && player.stopVideo) player.stopVideo();
-    
-    // Switch to Game Over Screen
-    document.getElementById('game-ui').classList.add('hidden');
-    document.getElementById('game-over').classList.remove('hidden');
+    secondsLeft = 0;
+    updateDisplay();
+
+    // Trigger the 5-second ducking and sound
+    playManualSFX();
+
+    // Show thank you screen only after the 5s ducking period
+    setTimeout(() => {
+        if (player && player.stopVideo) player.stopVideo();
+        document.getElementById('game-ui').classList.add('hidden');
+        document.getElementById('game-over').classList.remove('hidden');
+    }, 5000);
 }
 
 function resetTimerOnly() {
@@ -186,13 +195,22 @@ function resetTimerOnly() {
 }
 
 function playManualSFX() {
+    // 1. Duck the music to 20%
     if (player && player.setVolume) player.setVolume(musicVol * 0.2);
+    
+    // 2. Play the sound
     drinkSound.volume = sfxVol;
     drinkSound.currentTime = 0;
     drinkSound.play().catch(e => console.warn("Audio file missing."));
+
+    // 3. Restore music after 5 seconds
     setTimeout(() => {
-        if (!isPaused && player && player.setVolume) player.setVolume(musicVol);
-    }, 4000);
+        // Only restore if the game is still active
+        const isGameOver = !document.getElementById('game-over').classList.contains('hidden');
+        if (!isPaused && player && player.setVolume && !isGameOver) {
+            player.setVolume(musicVol);
+        }
+    }, 5000);
 }
 
 function togglePause() {
@@ -212,6 +230,7 @@ function updateAllVolumes() {
     document.getElementById('musLabel').innerText = musicVol + "%";
     sfxVol = Number(document.getElementById('sfxVolInput').value);
     document.getElementById('sfxLabel').innerText = Math.round(sfxVol * 100) + "%";
+    
     if (player && player.setVolume) player.setVolume(musicVol);
 }
 
