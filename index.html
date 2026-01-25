@@ -107,12 +107,16 @@
         </div>
         <button onclick="initGame()">START GAME</button>
     </div>
-
-    <div id="game-ui" class="hidden">
-        <div id="round-info">Round 1 / 60</div>
-        <div id="timer-display">01:00</div>
-        <div id="player"></div>
+<div id="game-ui" class="hidden">
+    <div id="round-info">Round 1 / 60</div>
+    <div id="timer-display">01:00</div>
+    
+    <div style="margin-bottom: 1rem;">
+        <button onclick="skipSong()" style="background: #475569;">Next Song ⏭️</button>
+        <button onclick="forceNextRound()" style="background: #ef4444;">Drink Now! 🍻</button>
     </div>
+
+    <div id="player"></div>
 </div>
 
 <script>
@@ -121,35 +125,19 @@
     let secondsLeft = 60;
     let currentRound = 1;
     let totalRounds = 60;
-    
-    // Using a reliable CDN for the beer sound
     const sfx = new Audio('https://assets.mixkit.co/active_storage/sfx/2005/2005-preview.mp3');
-
-    // Initialize YouTube API
-    function onYouTubeIframeAPIReady() {
-        // API is ready, but we wait for user to click start to avoid autoplay blocks
-    }
 
     function initGame() {
         totalRounds = document.getElementById('roundsInput').value;
         const playlistId = document.getElementById('playlistInput').value;
-        
         document.getElementById('setup').classList.add('hidden');
         document.getElementById('game-ui').classList.remove('hidden');
-        document.getElementById('round-info').innerText = `Round ${currentRound} / ${totalRounds}`;
 
         player = new YT.Player('player', {
             height: '360',
             width: '100%',
-            playerVars: {
-                'listType': 'playlist',
-                'list': playlistId,
-                'autoplay': 1,
-                'controls': 1
-            },
-            events: {
-                'onReady': startSequence
-            }
+            playerVars: { 'listType': 'playlist', 'list': playlistId, 'autoplay': 1 },
+            events: { 'onReady': startSequence }
         });
     }
 
@@ -159,49 +147,49 @@
     }
 
     function startTimer() {
+        if (timer) clearInterval(timer); // Prevent double timers
         timer = setInterval(() => {
             secondsLeft--;
-            
-            // Update Visuals
-            const mins = Math.floor(secondsLeft / 60);
-            const secs = secondsLeft % 60;
-            document.getElementById('timer-display').innerText = 
-                `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-
-            if (secondsLeft <= 0) {
-                handleNewRound();
-            }
+            updateDisplay();
+            if (secondsLeft <= 0) handleNewRound();
         }, 1000);
+    }
+
+    function updateDisplay() {
+        const mins = Math.floor(secondsLeft / 60);
+        const secs = secondsLeft % 60;
+        document.getElementById('timer-display').innerText = 
+            `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        document.getElementById('round-info').innerText = `Round ${currentRound} / ${totalRounds}`;
+    }
+
+    // BUTTON FUNCTION: Just changes the song
+    function skipSong() {
+        if (player) player.nextVideo();
+    }
+
+    // BUTTON FUNCTION: Triggers the "Drink" sequence immediately and resets the 60s clock
+    function forceNextRound() {
+        handleNewRound();
     }
 
     function handleNewRound() {
         if (currentRound >= totalRounds) {
             clearInterval(timer);
-            document.getElementById('timer-display').innerText = "DONE!";
+            document.getElementById('timer-display').innerText = "FINISH!";
             player.stopVideo();
             return;
         }
 
-        // 1. Duck the music
         player.setVolume(15);
-        
-        // 2. Play the sound
         sfx.play();
-
-        // 3. Skip to next song
         player.nextVideo();
-
-        // 4. Update round info
+        
         currentRound++;
-        document.getElementById('round-info').innerText = `Round ${currentRound} / ${totalRounds}`;
+        secondsLeft = 60; // Reset the clock
+        updateDisplay();
 
-        // 5. Reset timer
-        secondsLeft = 60;
-
-        // 6. Restore volume after sound effect ends (approx 3 seconds)
-        setTimeout(() => {
-            player.setVolume(100);
-        }, 3000);
+        setTimeout(() => { player.setVolume(100); }, 3000);
     }
 </script>
 
