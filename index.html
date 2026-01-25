@@ -87,10 +87,9 @@
 let player;
 let timer = null;
 
-const ROUND_SECONDS = 59;
+const ROUND_SECONDS = 60;
 let secondsLeft = ROUND_SECONDS;
-
-let secondsLeft = ROUND_SECONDS;
+let firstTick = true;
 let currentRound = 1;
 let totalRounds = 100;
 let isPaused = false;
@@ -150,18 +149,31 @@ function initGame() {
 /* ---------- Timer ---------- */
 function startCountdown() {
     clearInterval(timer);
+
+    firstTick = true;
+    secondsLeft = ROUND_SECONDS;
+    updateDisplay();
+
     timer = setInterval(() => {
         if (isPaused) return;
 
+        // Skip decrement on the very first tick
+        if (firstTick) {
+            firstTick = false;
+            return;
+        }
+
         secondsLeft--;
 
-        if (secondsLeft === 0) {
+        if (secondsLeft < 0) {
             nextRound();
+            return;
         }
 
         updateDisplay();
     }, 1000);
 }
+
 
 function updateDisplay() {
     const mins = Math.floor(secondsLeft / 60);
