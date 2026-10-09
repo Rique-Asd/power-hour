@@ -16,8 +16,12 @@
         /* Dashboard Layout */
         #game-ui { display: flex; height: 100vh; width: 100vw; }
         .sidebar { width: 380px; background: var(--panel); display: flex; flex-direction: column; padding: 25px; border-right: 1px solid #334155; box-shadow: 10px 0 30px rgba(0,0,0,0.5); z-index: 10; box-sizing: border-box; }
+        
+        /* Dual Player Container */
         .video-container { flex-grow: 1; background: #000; position: relative; }
-        #player { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .yt-player { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; transition: opacity 0.2s; }
+        .player-active { opacity: 1; z-index: 2; }
+        .player-hidden { opacity: 0; z-index: 1; }
 
         /* HUD */
         #timer-display { font-size: 6rem; font-weight: 900; font-family: monospace; color: var(--accent); text-align: center; line-height: 1; margin: 10px 0; }
@@ -82,7 +86,9 @@
         </div>
     </div>
     <div class="video-container">
-        <div id="player"></div>
+        <!-- Two players for background buffering -->
+        <div id="playerA" class="yt-player player-active"></div>
+        <div id="playerB" class="yt-player player-hidden"></div>
     </div>
 </div>
 
@@ -94,7 +100,12 @@
 </div>
 
 <script>
-let player;
+let playerA, playerB;
+let activePlayerStr = 'A'; 
+let videoIds = [];
+let currentVideoIdx = 0;
+let playlistLoaded = false;
+
 let timer = null;
 let secondsLeft = 60;
 let currentRound = 1;
@@ -115,26 +126,62 @@ function initGame() {
 
     updateDisplay();
 
+    // Initialize both players
     if (window.YT && YT.Player) {
-        player = new YT.Player('player', {
-            width: '100%',
-            height: '100%',
-            playerVars: {
-                listType: 'playlist',
-                list: playlistId,
-                autoplay: 1,
-                controls: 0,
-                origin: window.location.origin
-            },
+        // Player A loads the playlist first so we can extract the video IDs
+        playerA = new YT.Player('playerA', {
+            playerVars: { listType: 'playlist', list: playlistId, autoplay: 1, controls: 0, origin: window.location.origin },
             events: {
-                'onReady': (event) => {
-                    event.target.setVolume(musicVol);
-                    event.target.playVideo();
-                    startCountdown();
-                }
+                'onReady': (e) => { e.target.setVolume(musicVol); e.target.playVideo(); },
+                'onStateChange': (e) => onPlayerStateChange(e, 'A')
+            }
+        });
+
+        playerB = new YT.Player('playerB', {
+            playerVars: { controls: 0, origin: window.location.origin },
+            events: {
+                'onReady': (e) => { e.target.mute(); }, // Start B muted
+                'onStateChange': (e) => onPlayerStateChange(e, 'B')
             }
         });
     }
+}
+
+function onPlayerStateChange(event, playerId) {
+    // If a video starts playing...
+    if (event.data === YT.PlayerState.PLAYING) {
+        
+        // 1. If it's the very first time the playlist loads, extract the IDs.
+        if (!playlistLoaded && playerId === 'A') {
+            playlistLoaded = true;
+            videoIds = playerA.getPlaylist(); // Extract all IDs from playlist
+            currentVideoIdx = playerA.getPlaylistIndex();
+            startCountdown();
+            bufferNextSong(); // Tell Player B to get ready
+        }
+
+        // 2. If the BACKGROUND player starts playing, pause it immediately.
+        // This forces the browser to buffer the chunk, but stops the video until we need it.
+        let bgPlayerStr = (activePlayerStr === 'A') ? 'B' : 'A';
+        if (playerId === bgPlayerStr) {
+            let bgPlayer = (bgPlayerStr === 'A') ? playerA : playerB;
+            bgPlayer.pauseVideo();
+        }
+    }
+}
+
+function bufferNextSong() {
+    if (videoIds.length === 0) return;
+    
+    // Calculate the next song index (loops back to 0 if we hit the end of the playlist)
+    let nextIdx = (currentVideoIdx + 1) % videoIds.length;
+    let nextVideoId = videoIds[nextIdx];
+
+    // Load it into the background player
+    let bgPlayer = (activePlayerStr === 'A') ? playerB : playerA;
+    bgPlayer.mute(); // Ensure it's muted
+    bgPlayer.loadVideoById(nextVideoId); 
+    // It will start playing, trigger 'onStateChange', and immediately pause itself.
 }
 
 function startCountdown() {
@@ -144,7 +191,7 @@ function startCountdown() {
     timer = setInterval(() => {
         if (!isPaused) {
             secondsLeft--;
-            if (secondsLeft < 0) {
+            if (secondsLeft <= 0) {
                 nextRound();
             }
             updateDisplay();
@@ -161,7 +208,6 @@ function updateDisplay() {
 }
 
 function nextRound() {
-    // Play final sound effect if the game is ending
     if (currentRound >= totalRounds) {
         endGame();
         return;
@@ -170,20 +216,37 @@ function nextRound() {
     playManualSFX();
     currentRound++;
     secondsLeft = 60;
-    if (player && player.nextVideo) player.nextVideo();
+    currentVideoIdx = (currentVideoIdx + 1) % videoIds.length;
+
+    // Swap Players
+    let prevPlayer = (activePlayerStr === 'A') ? playerA : playerB;
+    activePlayerStr = (activePlayerStr === 'A') ? 'B' : 'A';
+    let newPlayer = (activePlayerStr === 'A') ? playerA : playerB;
+
+    // Update UI classes for fade transition
+    document.getElementById('playerA').className = (activePlayerStr === 'A') ? 'yt-player player-active' : 'yt-player player-hidden';
+    document.getElementById('playerB').className = (activePlayerStr === 'B') ? 'yt-player player-active' : 'yt-player player-hidden';
+
+    // Stop old song, play new buffered song
+    prevPlayer.stopVideo();
+    
+    newPlayer.unMute();
+    newPlayer.setVolume(musicVol);
+    newPlayer.playVideo();
+
+    // Start buffering the next song in the now-hidden player
+    bufferNextSong();
 }
 
 function endGame() {
     clearInterval(timer);
     secondsLeft = 0;
     updateDisplay();
-
-    // Trigger the 5-second ducking and sound
     playManualSFX();
 
-    // Show thank you screen only after the 5s ducking period
     setTimeout(() => {
-        if (player && player.stopVideo) player.stopVideo();
+        if (playerA && playerA.stopVideo) playerA.stopVideo();
+        if (playerB && playerB.stopVideo) playerB.stopVideo();
         document.getElementById('game-ui').classList.add('hidden');
         document.getElementById('game-over').classList.remove('hidden');
     }, 5000);
@@ -195,20 +258,17 @@ function resetTimerOnly() {
 }
 
 function playManualSFX() {
-    // 1. Duck the music to 20%
-    if (player && player.setVolume) player.setVolume(musicVol * 0.2);
+    let activePlayer = (activePlayerStr === 'A') ? playerA : playerB;
+    if (activePlayer && activePlayer.setVolume) activePlayer.setVolume(musicVol * 0.2);
     
-    // 2. Play the sound
     drinkSound.volume = sfxVol;
     drinkSound.currentTime = 0;
     drinkSound.play().catch(e => console.warn("Audio file missing."));
 
-    // 3. Restore music after 5 seconds
     setTimeout(() => {
-        // Only restore if the game is still active
         const isGameOver = !document.getElementById('game-over').classList.contains('hidden');
-        if (!isPaused && player && player.setVolume && !isGameOver) {
-            player.setVolume(musicVol);
+        if (!isPaused && activePlayer && activePlayer.setVolume && !isGameOver) {
+            activePlayer.setVolume(musicVol);
         }
     }, 2750);
 }
@@ -216,11 +276,13 @@ function playManualSFX() {
 function togglePause() {
     isPaused = !isPaused;
     const btn = document.getElementById('pauseBtn');
+    let activePlayer = (activePlayerStr === 'A') ? playerA : playerB;
+    
     if (isPaused) {
-        if (player && player.pauseVideo) player.pauseVideo();
+        if (activePlayer && activePlayer.pauseVideo) activePlayer.pauseVideo();
         btn.innerText = "RESUME GAME";
     } else {
-        if (player && player.playVideo) player.playVideo();
+        if (activePlayer && activePlayer.playVideo) activePlayer.playVideo();
         btn.innerText = "PAUSE GAME";
     }
 }
@@ -231,11 +293,12 @@ function updateAllVolumes() {
     sfxVol = Number(document.getElementById('sfxVolInput').value);
     document.getElementById('sfxLabel').innerText = Math.round(sfxVol * 100) + "%";
     
-    if (player && player.setVolume) player.setVolume(musicVol);
+    let activePlayer = (activePlayerStr === 'A') ? playerA : playerB;
+    if (activePlayer && activePlayer.setVolume) activePlayer.setVolume(musicVol);
 }
 
 function skipSong() {
-    if (player && player.nextVideo) player.nextVideo();
+    nextRound();
 }
 </script>
 </body>
